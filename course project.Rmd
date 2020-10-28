@@ -1,0 +1,84 @@
+# Practical Machine Learning Course Project=
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+## Load Required Packages
+```{r}
+library(caret)
+library(randomForest)
+library(e1071)
+```
+
+
+## Read the Data
+```{r}
+trainurl = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testurl = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(trainurl, destfile = "./pml-training.csv",method = "curl")
+download.file(testurl, destfile = "./pml-testing.csv",method = "curl")
+trainraw = read.csv("./pml-training.csv")
+testraw = read.csv("./pml-testing.csv")
+dim(trainraw)
+dim(testraw)
+```
+The training data set has 19622 observations and 160 variables. The testing data set has 20 observations and 160 variables.
+
+
+## Clean the Data
+Remove the variables that contain missing values.
+```{r}
+training = trainraw[, colSums(is.na(trainraw)) == 0]
+testing = testraw[, colSums(is.na(testraw)) == 0]
+```
+
+Remove the first 7 variables as they do not contribute much to the accelerometer measurements.
+```{r}
+training = training[, -c(1:7)]
+testing = testing[, -c(1:7)]
+dim(training); dim(testing)
+```
+
+
+## Create Cross Validation Set
+Split the training data. 70% will be the training set and 30% will be the testing set.
+```{r}
+set.seed(1234)
+intrain = createDataPartition(training$classe, p = 0.7, list = FALSE)
+trainset = training[intrain, ]
+testset = training[-intrain, ]
+```
+
+Remove the variables that are near zero variance.
+```{r}
+nzv = nearZeroVar(trainset)
+trainset = trainset[, -nzv]
+testset = testset[, -nzv]
+dim(trainset); dim(testset)
+```
+
+
+## Prediction with Random Forest
+Fit a predictive model using Random Forest as it automatically selects important variables and is robust to correlated covariates and outliers.
+```{r}
+modelfit = train(classe ~  ., method = "rf", data = trainset, trControl = trainControl(method = "cv"), number = 5, allowParallel = TRUE)
+modelfit$finalModel
+```
+
+Accuracy on training and testing set
+```{r}
+trainsetpred = predict(modelfit, trainset)
+confusionMatrix(trainsetpred, trainset$classe)
+testsetpred = predict(modelfit, testset)
+confusionMatrix(testsetpred, testset$classe)
+```
+
+## Prediction on Actual Testing Set
+```{r}
+testingpred = predict(modelfit, testing)
+testingpred
+```
+
+
+
+
